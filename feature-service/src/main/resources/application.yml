@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: feature-service
+  datasource:
+    url: jdbc:postgresql://${FEATURE_DB_HOST:localhost}:${FEATURE_DB_PORT:5432}/${FEATURE_DB_NAME:feature_db}
+    username: ${FEATURE_DB_USER:feature}
+    password: ${FEATURE_DB_PASSWORD:feature}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 60000
+      connection-timeout: 3000
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate   # schema comes from db/feature/schema.sql
+
+grpc:
+  server:
+    port: ${GRPC_PORT:9004}
+
+auth:
+  jwt:
+    public-key-path: ${JWT_PUBLIC_KEY_PATH:deploy/keys/public.pem}

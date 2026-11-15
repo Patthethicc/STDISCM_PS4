@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package stdiscm.announcement;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "com.stdiscm.proto.announcement";
+
+service AnnouncementService {
+  // FACULTY only.
+  rpc PostAnnouncement(PostAnnouncementRequest) returns (Announcement);
+  // STUDENT or FACULTY. Newest first.
+  rpc ListAnnouncements(ListAnnouncementsRequest) returns (ListAnnouncementsResponse);
+}
+
+message PostAnnouncementRequest {
+  string title = 1;
+  string body = 2;
+}
+
+message ListAnnouncementsRequest {}
+
+message ListAnnouncementsResponse {
+  repeated Announcement announcements = 1;
+}
+
+message Announcement {
+  string id = 1;
+  string title = 2;
+  string body = 3;
+  string author_id = 4;
+  string author_name = 5;
+  google.protobuf.Timestamp created_at = 6;
+}

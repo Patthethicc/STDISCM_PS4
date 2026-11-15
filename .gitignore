@@ -1,0 +1,10 @@
+target/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+node_modules/
+dist/
+.env
+# JWT private key must never be committed
+deploy/keys/
