@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package stdiscm.auth;
+
+option java_multiple_files = true;
+option java_package = "com.stdiscm.proto.auth";
+
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  STUDENT = 1;
+  FACULTY = 2;
+}
+
+service AuthService {
+  // Public. Returns a signed JWT (15-minute expiry).
+  rpc Login(LoginRequest) returns (LoginResponse);
+  // Requires "authorization: Bearer <token>". Adds the token ID to the revocation list.
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+  string user_id = 2;
+  Role role = 3;
+  string name = 4;
+  int64 expires_at_epoch_seconds = 5;
+}
+
+message LogoutRequest {}
+
+message LogoutResponse {}
