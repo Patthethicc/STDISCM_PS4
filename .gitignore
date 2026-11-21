@@ -9,3 +9,4 @@ dist/
 # JWT private key must never be committed
 deploy/keys/
 *.tsbuildinfo
+tests/e2e/.sessions

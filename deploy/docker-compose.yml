@@ -1,0 +1,178 @@
+# One file for every node. Each VM starts only its own node with a profile:
+#
+#   docker compose --env-file .env --profile view    up -d --build   # view VM:    website + gateway
+#   docker compose --env-file .env --profile auth    up -d --build   # auth VM:    login service + its DB
+#   docker compose --env-file .env --profile course  up -d --build   # course VM:  course service + its DB
+#   docker compose --env-file .env --profile grade   up -d --build   # grade VM:   grade service + its DB
+#   docker compose --env-file .env --profile feature up -d --build   # feature VM: announcements + its DB
+#
+#   docker compose --env-file .env --profile all     up -d --build   # everything on one machine (testing)
+#
+# Run from the deploy/ folder. Each node has its own database, so stopping a node
+# takes down only that node's features. Nodes talk to each other over gRPC only.
+
+x-service: &service
+  restart: unless-stopped
+  volumes:
+    - ./keys/public.pem:/keys/public.pem:ro
+  environment: &service-env
+    JWT_PUBLIC_KEY_PATH: /keys/public.pem
+
+x-db: &db
+  image: postgres:16-alpine
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+    interval: 3s
+    timeout: 3s
+    retries: 20
+
+services:
+  # ---------- View node: React site (nginx) + gateway (Spring Boot) ----------
+  frontend:
+    profiles: [view, all]
+    build: ../frontend
+    restart: unless-stopped
+    ports:
+      - "${VIEW_PORT:-80}:80"
+    depends_on: [gateway]
+
+  gateway:
+    <<: *service
+    profiles: [view, all]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args: { MODULE: gateway }
+    environment:
+      <<: *service-env
+      AUTH_ADDR: ${AUTH_HOST:-auth-service}:9001
+      COURSE_ADDR: ${COURSE_HOST:-course-service}:9002
+      GRADE_ADDR: ${GRADE_HOST:-grade-service}:9003
+      ANNOUNCEMENT_ADDR: ${FEATURE_HOST:-feature-service}:9004
+      GRPC_DEADLINE_MS: ${GRPC_DEADLINE_MS:-2000}
+
+  # ---------- Auth node ----------
+  auth-db:
+    <<: *db
+    profiles: [auth, all]
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-auth}
+    volumes:
+      - auth-data:/var/lib/postgresql/data
+      - ../db/auth/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../db/auth/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - ../db/auth/seed-loadtest.sql:/docker-entrypoint-initdb.d/03-seed-loadtest.sql:ro
+
+  auth-service:
+    <<: *service
+    profiles: [auth, all]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args: { MODULE: auth-service }
+    ports: ["9001:9001"]
+    volumes:
+      - ./keys/public.pem:/keys/public.pem:ro
+      - ./keys/private.pem:/keys/private.pem:ro   # only the auth node has the private key
+    environment:
+      <<: *service-env
+      JWT_PRIVATE_KEY_PATH: /keys/private.pem
+      JWT_TTL_MINUTES: ${JWT_TTL_MINUTES:-15}
+      AUTH_DB_HOST: auth-db
+      AUTH_DB_PASSWORD: ${AUTH_DB_PASSWORD:-auth}
+    depends_on:
+      auth-db: { condition: service_healthy }
+
+  # ---------- Course node ----------
+  course-db:
+    <<: *db
+    profiles: [course, all]
+    environment:
+      POSTGRES_DB: course_db
+      POSTGRES_USER: course
+      POSTGRES_PASSWORD: ${COURSE_DB_PASSWORD:-course}
+    volumes:
+      - course-data:/var/lib/postgresql/data
+      - ../db/course/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../db/course/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+
+  course-service:
+    <<: *service
+    profiles: [course, all]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args: { MODULE: course-service }
+    ports: ["9002:9002"]
+    environment:
+      <<: *service-env
+      COURSE_DB_HOST: course-db
+      COURSE_DB_PASSWORD: ${COURSE_DB_PASSWORD:-course}
+    depends_on:
+      course-db: { condition: service_healthy }
+
+  # ---------- Grade node ----------
+  grade-db:
+    <<: *db
+    profiles: [grade, all]
+    environment:
+      POSTGRES_DB: grade_db
+      POSTGRES_USER: grade
+      POSTGRES_PASSWORD: ${GRADE_DB_PASSWORD:-grade}
+    volumes:
+      - grade-data:/var/lib/postgresql/data
+      - ../db/grade/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../db/grade/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+  # Bonus 1 (Neo): add grade-db-replica here and point GRADE_DB_HOST at both hosts.
+
+  grade-service:
+    <<: *service
+    profiles: [grade, all]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args: { MODULE: grade-service }
+    ports: ["9003:9003"]
+    environment:
+      <<: *service-env
+      GRADE_DB_HOST: grade-db
+      GRADE_DB_PASSWORD: ${GRADE_DB_PASSWORD:-grade}
+    depends_on:
+      grade-db: { condition: service_healthy }
+
+  # ---------- Feature node (announcements, Bonus 2) ----------
+  feature-db:
+    <<: *db
+    profiles: [feature, all]
+    environment:
+      POSTGRES_DB: feature_db
+      POSTGRES_USER: feature
+      POSTGRES_PASSWORD: ${FEATURE_DB_PASSWORD:-feature}
+    volumes:
+      - feature-data:/var/lib/postgresql/data
+      - ../db/feature/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../db/feature/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+
+  feature-service:
+    <<: *service
+    profiles: [feature, all]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.service
+      args: { MODULE: feature-service }
+    ports: ["9004:9004"]
+    environment:
+      <<: *service-env
+      FEATURE_DB_HOST: feature-db
+      FEATURE_DB_PASSWORD: ${FEATURE_DB_PASSWORD:-feature}
+    depends_on:
+      feature-db: { condition: service_healthy }
+
+volumes:
+  auth-data:
+  course-data:
+  grade-data:
+  feature-data:
