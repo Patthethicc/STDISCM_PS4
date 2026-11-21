@@ -122,7 +122,10 @@ java tests/e2e/FailureTests.java recovered VIEW
 - **Bonus 2, announcements on their own node:** post as reyes, read as alice; stop the feature
   node (`--profile feature stop`) and only Announcements goes unavailable.
 - **Bonus 1, redundant database (grade node):** stop the grade primary DB; grades still load from the replica.
-  (Neo: fill in the exact commands once the replica is set up.)
+  Start everything with the replica add-on (`-f docker-compose.yml -f docker-compose.replica.yml`, see `deploy/replication/README.md`).
+  1. As reyes, upload a grade for alice. Then stop **only the grade database**: `docker compose -f docker-compose.yml -f docker-compose.replica.yml --profile grade stop grade-db`.
+  2. As alice, **My Grades** still loads, including that grade. As reyes, uploading again says "temporarily unavailable" (the replica is read-only).
+  3. `... --profile grade start grade-db`: within 5 s the grade-service log shows `FAILBACK` and uploading works again.
 - **Bonus 3, connection pooling (course node):** run the load test; connections in use stay within
   the pool limit. (Pat: fill in the command and where to read the pool numbers.)
 

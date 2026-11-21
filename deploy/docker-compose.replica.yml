@@ -1,0 +1,129 @@
+# Bonus 1 on top of docker-compose.yml. Jomi's file is untouched; add this one with a second -f:
+#
+#   docker compose --env-file .env -f docker-compose.yml -f docker-compose.replica.yml --profile replica up -d   # replica VM
+#   docker compose --env-file .env -f docker-compose.yml -f docker-compose.replica.yml --profile <node> up -d --build   # each node VM
+#   docker compose --env-file .env -f docker-compose.yml -f docker-compose.replica.yml --profile all up -d --build       # one machine
+#
+# Without this file everything still works, just with no replicas (blank *_DB_REPLICA_HOST = failover off).
+# What it adds: each primary DB allows replication and publishes a port for the replica VM, each service
+# learns where its replica is, and a `replica` profile holds one streaming standby per database.
+# Same postgres major version on both sides is required (postgres:16-alpine, as in docker-compose.yml).
+# See deploy/replication/README.md.
+
+x-replica: &replica
+  image: postgres:16-alpine
+  restart: unless-stopped
+  user: postgres
+  entrypoint: ["bash", "/replication/replica-entrypoint.sh"]
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -h 127.0.0.1"]
+    interval: 3s
+    timeout: 3s
+    retries: 40
+
+x-primary: &primary
+  volumes:
+    - ./replication/primary-init.sh:/docker-entrypoint-initdb.d/00-replication.sh:ro
+
+services:
+  auth-db:
+    <<: *primary
+    environment:
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replpass}
+      REPLICATION_SLOT: auth_replica
+    ports: ["5401:5432"]   # reached by the replica VM
+  auth-service:
+    environment:
+      AUTH_DB_REPLICA_HOST: ${AUTH_REPLICA_HOST-auth-db-replica}
+      AUTH_DB_REPLICA_PORT: ${AUTH_REPLICA_PORT:-5432}
+
+  course-db:
+    <<: *primary
+    environment:
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replpass}
+      REPLICATION_SLOT: course_replica
+    ports: ["5402:5432"]
+  course-service:
+    environment:
+      COURSE_DB_REPLICA_HOST: ${COURSE_REPLICA_HOST-course-db-replica}
+      COURSE_DB_REPLICA_PORT: ${COURSE_REPLICA_PORT:-5432}
+
+  grade-db:
+    <<: *primary
+    environment:
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replpass}
+      REPLICATION_SLOT: grade_replica
+    ports: ["5403:5432"]
+  grade-service:
+    environment:
+      GRADE_DB_REPLICA_HOST: ${GRADE_REPLICA_HOST-grade-db-replica}
+      GRADE_DB_REPLICA_PORT: ${GRADE_REPLICA_PORT:-5432}
+
+  feature-db:
+    <<: *primary
+    environment:
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replpass}
+      REPLICATION_SLOT: feature_replica
+    ports: ["5404:5432"]
+  feature-service:
+    environment:
+      FEATURE_DB_REPLICA_HOST: ${FEATURE_REPLICA_HOST-feature-db-replica}
+      FEATURE_DB_REPLICA_PORT: ${FEATURE_REPLICA_PORT:-5432}
+
+  auth-db-replica:
+    <<: *replica
+    profiles: [replica, all]
+    environment:
+      PRIMARY_HOST: ${AUTH_DB_PRIMARY_HOST:-auth-db}     # replica VM: the auth VM's IP
+      PRIMARY_PORT: ${AUTH_DB_PRIMARY_PORT:-5432}        # replica VM: 5401
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replpass}
+      REPLICATION_SLOT: auth_replica
+    volumes:
+      - auth-replica-data:/var/lib/postgresql/data
+      - ./replication:/replication:ro
+    ports: ["5441:5432"]
+
+  course-db-replica:
+    <<: *replica
+    profiles: [replica, all]
+    environment:
+      PRIMARY_HOST: ${COURSE_DB_PRIMARY_HOST:-course-db}   # replica VM: the course VM's IP
+      PRIMARY_PORT: ${COURSE_DB_PRIMARY_PORT:-5432}        # replica VM: 5402
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replpass}
+      REPLICATION_SLOT: course_replica
+    volumes:
+      - course-replica-data:/var/lib/postgresql/data
+      - ./replication:/replication:ro
+    ports: ["5442:5432"]
+
+  grade-db-replica:
+    <<: *replica
+    profiles: [replica, all]
+    environment:
+      PRIMARY_HOST: ${GRADE_DB_PRIMARY_HOST:-grade-db}     # replica VM: the grade VM's IP
+      PRIMARY_PORT: ${GRADE_DB_PRIMARY_PORT:-5432}         # replica VM: 5403
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replpass}
+      REPLICATION_SLOT: grade_replica
+    volumes:
+      - grade-replica-data:/var/lib/postgresql/data
+      - ./replication:/replication:ro
+    ports: ["5443:5432"]
+
+  feature-db-replica:
+    <<: *replica
+    profiles: [replica, all]
+    environment:
+      PRIMARY_HOST: ${FEATURE_DB_PRIMARY_HOST:-feature-db}   # replica VM: the feature VM's IP
+      PRIMARY_PORT: ${FEATURE_DB_PRIMARY_PORT:-5432}         # replica VM: 5404
+      REPLICATION_PASSWORD: ${REPLICATION_PASSWORD:-replpass}
+      REPLICATION_SLOT: feature_replica
+    volumes:
+      - feature-replica-data:/var/lib/postgresql/data
+      - ./replication:/replication:ro
+    ports: ["5444:5432"]
+
+volumes:
+  auth-replica-data:
+  course-replica-data:
+  grade-replica-data:
+  feature-replica-data:

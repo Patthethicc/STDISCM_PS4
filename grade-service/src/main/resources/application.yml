@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: grade-service
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate   # schema comes from db/grade/schema.sql
+
+grpc:
+  server:
+    port: ${GRPC_PORT:9003}
+
+auth:
+  jwt:
+    public-key-path: ${JWT_PUBLIC_KEY_PATH:deploy/keys/public.pem}
+
+# Database + Bonus 1. No spring.datasource block: config/DataSourceConfig builds the DataSource
+# from these settings (shared-db): primary first, read-only replica when the primary is down.
+db:
+  name: ${GRADE_DB_NAME:grade_db}
+  user: ${GRADE_DB_USER:grade}
+  password: ${GRADE_DB_PASSWORD:grade}
+  primary:
+    host: ${GRADE_DB_HOST:localhost}
+    port: ${GRADE_DB_PORT:5432}
+  replica:
+    host: ${GRADE_DB_REPLICA_HOST:}       # empty = no replica (failover off)
+    port: ${GRADE_DB_REPLICA_PORT:5432}
+  pool:                                   # explicit pool, sized for the 2 s gateway deadline
+    maximum-pool-size: ${GRADE_DB_POOL_MAX:10}
+    minimum-idle: 2
+    idle-timeout-ms: 60000
+    connection-timeout-ms: 500
+    validation-timeout-ms: 300
+    max-lifetime-ms: 600000
+  failover:
+    recheck-ms: ${GRADE_DB_RECHECK_MS:5000}
+  jdbc-params: connectTimeout=1&socketTimeout=1&tcpKeepAlive=true

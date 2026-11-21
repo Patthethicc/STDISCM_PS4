@@ -46,7 +46,7 @@ gRPC implementation is required when communication between nodes are needed.
 |---|---|
 | Login, logout, shared token checker, announcements, test users | Done and tested |
 | Course service, connection pool (Bonus 3) | Not started |
-| Grade service, replica failover (Bonus 1) | Not started |
+| Grade service, replica failover (Bonus 1, on every DB) | Done: see `grade-service/README.md`, `deploy/replication/README.md` |
 | Website, deployment, failure tests, demo | Not started |
 
 **Login:** you send username and password. The login service checks the password against a stored

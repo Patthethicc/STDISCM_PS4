@@ -1,15 +1,6 @@
 spring:
   application:
     name: feature-service
-  datasource:
-    url: jdbc:postgresql://${FEATURE_DB_HOST:localhost}:${FEATURE_DB_PORT:5432}/${FEATURE_DB_NAME:feature_db}
-    username: ${FEATURE_DB_USER:feature}
-    password: ${FEATURE_DB_PASSWORD:feature}
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      idle-timeout: 60000
-      connection-timeout: 3000
   jpa:
     open-in-view: false
     hibernate:
@@ -22,3 +13,24 @@ grpc:
 auth:
   jwt:
     public-key-path: ${JWT_PUBLIC_KEY_PATH:deploy/keys/public.pem}
+
+# Database + Bonus 1 replica failover (shared-db). Built by config/DataSourceConfig.
+db:
+  name: ${FEATURE_DB_NAME:feature_db}
+  user: ${FEATURE_DB_USER:feature}
+  password: ${FEATURE_DB_PASSWORD:feature}
+  primary:
+    host: ${FEATURE_DB_HOST:localhost}
+    port: ${FEATURE_DB_PORT:5432}
+  replica:
+    host: ${FEATURE_DB_REPLICA_HOST:}       # empty = no replica (failover off)
+    port: ${FEATURE_DB_REPLICA_PORT:5432}
+  pool:
+    maximum-pool-size: 10
+    minimum-idle: 2
+    idle-timeout-ms: 60000
+    connection-timeout-ms: 500
+    validation-timeout-ms: 300
+    max-lifetime-ms: 600000
+  failover:
+    recheck-ms: 5000
