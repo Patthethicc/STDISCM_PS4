@@ -27,6 +27,7 @@
     <module>shared-auth</module>
     <module>auth-service</module>
     <module>feature-service</module>
+    <module>gateway</module>
   </modules>
 
   <properties>

@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package stdiscm.grade;
+
+option java_multiple_files = true;
+option java_package = "com.stdiscm.proto.grade";
+
+// Grade service (port 9003). Every call needs "authorization: Bearer <token>".
+// Never calls the course service: course code and title are stored with each grade.
+service GradeService {
+  // STUDENT only. The caller's own grades.
+  rpc GetMyGrades(GetMyGradesRequest) returns (GetMyGradesResponse);
+  // FACULTY only, and only for courses the caller teaches (faculty_courses table),
+  // otherwise PERMISSION_DENIED. Grades are 0.0 to 4.0 in 0.5 steps, otherwise
+  // INVALID_ARGUMENT. Existing grades for the same student, course and term are updated.
+  rpc UploadGrades(UploadGradesRequest) returns (UploadGradesResponse);
+  // FACULTY only. Courses the caller teaches, so the upload page can work
+  // even when the course service is down.
+  rpc ListMyTeachingCourses(ListMyTeachingCoursesRequest) returns (ListMyTeachingCoursesResponse);
+}
+
+message Grade {
+  string student_id = 1;
+  string course_code = 2;
+  string course_title = 3;
+  string term = 4;        // e.g. "T1 2026-2027"
+  double grade = 5;
+  string uploaded_by = 6; // faculty user ID
+}
+
+message GetMyGradesRequest {}
+message GetMyGradesResponse { repeated Grade grades = 1; }
+
+message GradeInput {
+  string student_id = 1;
+  double grade = 2;
+}
+message UploadGradesRequest {
+  string course_code = 1;
+  string term = 2;
+  repeated GradeInput grades = 3;
+}
+message UploadGradesResponse {
+  int32 saved = 1;   // inserted or updated
+}
+
+message TeachingCourse {
+  string course_code = 1;
+  string course_title = 2;
+}
+message ListMyTeachingCoursesRequest {}
+message ListMyTeachingCoursesResponse { repeated TeachingCourse courses = 1; }

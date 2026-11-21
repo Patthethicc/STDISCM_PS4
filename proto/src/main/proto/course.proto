@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package stdiscm.course;
+
+option java_multiple_files = true;
+option java_package = "com.stdiscm.proto.course";
+
+// Course service (port 9002). Every call needs "authorization: Bearer <token>".
+// The caller's ID and role come from the token, never from the request.
+service CourseService {
+  // Any logged-in user.
+  rpc ListCourses(ListCoursesRequest) returns (ListCoursesResponse);
+  // STUDENT only. Atomic: only succeeds if the course is open and has a free slot.
+  // Errors: FAILED_PRECONDITION with message "FULL" or "CLOSED",
+  //         ALREADY_EXISTS ("ALREADY_ENROLLED"), NOT_FOUND (unknown course).
+  rpc Enroll(EnrollRequest) returns (EnrollResponse);
+  // STUDENT only. The caller's own enrollments.
+  rpc ListMyEnrollments(ListMyEnrollmentsRequest) returns (ListMyEnrollmentsResponse);
+  // FACULTY only. Students enrolled in a course.
+  rpc ListRoster(ListRosterRequest) returns (ListRosterResponse);
+}
+
+message Course {
+  string code = 1;      // e.g. "STDISCM"
+  string title = 2;
+  int32 capacity = 3;
+  int32 enrolled = 4;
+  bool open = 5;
+}
+
+message ListCoursesRequest {}
+message ListCoursesResponse { repeated Course courses = 1; }
+
+message EnrollRequest { string course_code = 1; }
+message EnrollResponse { Course course = 1; }  // course after enrolling (updated count)
+
+message ListMyEnrollmentsRequest {}
+message ListMyEnrollmentsResponse { repeated Course courses = 1; }
+
+message ListRosterRequest { string course_code = 1; }
+message RosterEntry {
+  string student_id = 1;
+  string student_name = 2;
+}
+message ListRosterResponse {
+  string course_code = 1;
+  repeated RosterEntry students = 2;
+}
