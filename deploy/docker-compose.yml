@@ -111,6 +111,8 @@ services:
       <<: *service-env
       COURSE_DB_HOST: course-db
       COURSE_DB_PASSWORD: ${COURSE_DB_PASSWORD:-course}
+      # Bonus 3: log every checkout so the concurrency demo shows live in-use connections.
+      DB_POOL_LOG_CHECKOUTS: "true"
     depends_on:
       course-db: { condition: service_healthy }
 

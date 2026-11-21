@@ -123,8 +123,11 @@ java tests/e2e/FailureTests.java recovered VIEW
   node (`--profile feature stop`) and only Announcements goes unavailable.
 - **Bonus 1, redundant database (grade node):** stop the grade primary DB; grades still load from the replica.
   (Neo: fill in the exact commands once the replica is set up.)
-- **Bonus 3, connection pooling (course node):** run the load test; connections in use stay within
-  the pool limit. (Pat: fill in the command and where to read the pool numbers.)
+- **Bonus 3, connection pooling (course node):** run the load test while watching the
+  course node's pool lines. In the course node's terminal:
+  `docker compose --profile course logs -f course-service | grep 'pool\['`.
+  Each line shows `inUse`, `idle`, `total`, `waiting` and `max`; `inUse` never exceeds
+  the limit (10) and `waiting` shows requests queueing when the pool is saturated.
 
 ## Closing line
 

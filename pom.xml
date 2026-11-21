@@ -19,14 +19,17 @@
 
   <!--
     Only modules that already have a pom are listed. Each teammate adds their own
-    module here when they fill in its pom.xml (shared-db, course-service,
-    grade-service, gateway).
+    module here when they fill in its pom.xml. grade-service's pom and pool
+    configuration are ready; add <module>grade-service</module> once its
+    application class is implemented.
   -->
   <modules>
     <module>proto</module>
     <module>shared-auth</module>
+    <module>shared-db</module>
     <module>auth-service</module>
     <module>feature-service</module>
+    <module>course-service</module>
     <module>gateway</module>
   </modules>
 
@@ -87,6 +90,11 @@
       <dependency>
         <groupId>com.stdiscm</groupId>
         <artifactId>shared-auth</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.stdiscm</groupId>
+        <artifactId>shared-db</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

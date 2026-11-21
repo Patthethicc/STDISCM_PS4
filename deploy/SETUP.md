@@ -112,9 +112,17 @@ Reset a node's database (re-runs schema and seed): `docker compose --profile cou
 |---|---|
 | gateway | `AUTH_ADDR`, `COURSE_ADDR`, `GRADE_ADDR`, `ANNOUNCEMENT_ADDR`, `GRPC_DEADLINE_MS`, `JWT_PUBLIC_KEY_PATH` |
 | auth-service | `AUTH_DB_*`, `JWT_PRIVATE_KEY_PATH`, `JWT_PUBLIC_KEY_PATH`, `JWT_TTL_MINUTES`, `GRPC_PORT` |
-| course-service | `COURSE_DB_HOST`, `COURSE_DB_PASSWORD` (user/db `course`/`course_db`), `JWT_PUBLIC_KEY_PATH`, port 9002 |
+| course-service | `COURSE_DB_*` (user/db `course`/`course_db`), `JWT_PUBLIC_KEY_PATH`, port 9002 |
 | grade-service | `GRADE_DB_HOST`, `GRADE_DB_PASSWORD` (user/db `grade`/`grade_db`), `JWT_PUBLIC_KEY_PATH`, port 9003 |
 | feature-service | `FEATURE_DB_*`, `JWT_PUBLIC_KEY_PATH`, `GRPC_PORT` |
+
+All services share the explicit pool from `shared-db` (Bonus 3): `DB_POOL_MAX`
+(default 10), `DB_POOL_MIN_IDLE` (2), `DB_POOL_IDLE_TIMEOUT_MS` (60000),
+`DB_POOL_CONNECTION_TIMEOUT_MS` (3000), `DB_POOL_LOG_INTERVAL_MS` (10000) and
+`DB_POOL_LOG_CHECKOUTS` (`true` on the course node for the demo). The course
+service logs `pool[course-pool] inUse=...` lines; see `shared-db/README.md`.
+`grade-service` is pre-wired with `grade-pool` in its `pom.xml` and
+`application.yml`, ready for Member 3's code.
 
 Course and grade services: read these names in your `application.yml`, the same way
 auth-service does, so Compose can configure you.
@@ -136,4 +144,4 @@ cd frontend && npm install && npm run dev             # http://localhost:5173
 | Login works but other pages say "Please log in" | The node has a different `public.pem`; copy the same one everywhere and restart it |
 | `public.pem` not found | Run `gen-keys.sh` / copy the keys into `deploy/keys/` before `up` |
 | DB schema changed but nothing happens | Init scripts only run on an empty DB: `docker compose --profile <name> down -v`, then `up` |
-| Build fails on `-pl course-service` | That module isn't in the root `pom.xml` yet |
+| Build fails on `-pl course-service` | Run Maven from the repo root; `shared-db` and `course-service` are in the root `pom.xml` |
