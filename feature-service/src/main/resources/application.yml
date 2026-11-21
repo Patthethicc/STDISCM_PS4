@@ -1,10 +1,32 @@
 spring:
   application:
     name: feature-service
+  datasource:
+    url: jdbc:postgresql://${FEATURE_DB_HOST:localhost}:${FEATURE_DB_PORT:5432}/${FEATURE_DB_NAME:feature_db}
+    username: ${FEATURE_DB_USER:feature}
+    password: ${FEATURE_DB_PASSWORD:feature}
   jpa:
     open-in-view: false
     hibernate:
       ddl-auto: validate   # schema comes from db/feature/schema.sql
+
+# Bonus 3: shared explicit pool (shared-db module).
+db:
+  pool:
+    name: feature-pool
+    maximum-pool-size: ${DB_POOL_MAX:10}
+    minimum-idle: ${DB_POOL_MIN_IDLE:2}
+    idle-timeout-ms: ${DB_POOL_IDLE_TIMEOUT_MS:60000}
+    connection-timeout-ms: ${DB_POOL_CONNECTION_TIMEOUT_MS:3000}
+    max-lifetime-ms: ${DB_POOL_MAX_LIFETIME_MS:1800000}
+    log-interval-ms: ${DB_POOL_LOG_INTERVAL_MS:10000}
+    log-checkouts: ${DB_POOL_LOG_CHECKOUTS:false}
+
+  # Bonus 1: a read-only streaming replica takes over while the primary DB is down.
+  # Empty host = no replica, failover off, and the pool above is used as is.
+  failover:
+    replica-host: ${FEATURE_DB_REPLICA_HOST:}
+    replica-port: ${FEATURE_DB_REPLICA_PORT:5432}
 
 grpc:
   server:
@@ -13,24 +35,3 @@ grpc:
 auth:
   jwt:
     public-key-path: ${JWT_PUBLIC_KEY_PATH:deploy/keys/public.pem}
-
-# Database + Bonus 1 replica failover (shared-db). Built by config/DataSourceConfig.
-db:
-  name: ${FEATURE_DB_NAME:feature_db}
-  user: ${FEATURE_DB_USER:feature}
-  password: ${FEATURE_DB_PASSWORD:feature}
-  primary:
-    host: ${FEATURE_DB_HOST:localhost}
-    port: ${FEATURE_DB_PORT:5432}
-  replica:
-    host: ${FEATURE_DB_REPLICA_HOST:}       # empty = no replica (failover off)
-    port: ${FEATURE_DB_REPLICA_PORT:5432}
-  pool:
-    maximum-pool-size: 10
-    minimum-idle: 2
-    idle-timeout-ms: 60000
-    connection-timeout-ms: 500
-    validation-timeout-ms: 300
-    max-lifetime-ms: 600000
-  failover:
-    recheck-ms: 5000

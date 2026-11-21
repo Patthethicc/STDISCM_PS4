@@ -2,7 +2,7 @@
 
 Every service database has a **primary** (read-write, on the service's VM) and a **hot standby
 replica** (read-only, on the replica VM) that streams the primary's WAL continuously. Each service's
-DataSource (`shared-db/ReplicaFailoverDataSource`) uses the primary, and when the primary can't be
+DataSource (`shared-db/ReplicaFailoverDataSource`, switched on by `db.failover.replica-host`) uses the primary, and when the primary can't be
 reached, it serves from the replica:
 
 | Primary database | Reads (grades, courses, login, announcements) | Writes (upload, enroll, logout, post) |
@@ -82,4 +82,4 @@ promoted one and swap the host settings. This is why failover here is read-only 
   drop its slot (`SELECT pg_drop_replication_slot('grade_replica');`) or the primary's disk fills up.
 - Physical replication copies a whole PostgreSQL instance. Each service has its own instance, so each needs
   its own replica (four standby containers on the replica VM).
-- The course service gets failover once it builds its DataSource with `shared-db` (see `grade-service/README.md`).
+- Every service (auth, course, grade, announcements) gets failover from `shared-db` through its `db.failover` block in `application.yml`; the pool limits are Pat's `db.pool` settings (Bonus 3).

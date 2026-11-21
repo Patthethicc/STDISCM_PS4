@@ -36,7 +36,7 @@ gRPC implementation is required when communication between nodes are needed.
   2-second deadline per call.
 - Seed data must use the exact test user IDs under "Test accounts".
 
-**Ports:** auth 9001, announcements 9004. Course and grade: pick unused ones and tell the team.
+**Ports:** auth 9001, course 9002, grade 9003, announcements 9004.
 
 ---
 
@@ -45,7 +45,7 @@ gRPC implementation is required when communication between nodes are needed.
 | Piece | Status |
 |---|---|
 | Login, logout, shared token checker, announcements, test users | Done and tested |
-| Course service, connection pool (Bonus 3) | Not started |
+| Course service, connection pool (Bonus 3) | Done |
 | Grade service, replica failover (Bonus 1, on every DB) | Done: see `grade-service/README.md`, `deploy/replication/README.md` |
 | Website, deployment, failure tests, demo | Not started |
 
@@ -94,14 +94,17 @@ mvn install
 ```bash
 psql <ADMIN> -c "CREATE USER auth PASSWORD 'auth'"       -c "CREATE DATABASE auth_db OWNER auth"
 psql <ADMIN> -c "CREATE USER feature PASSWORD 'feature'" -c "CREATE DATABASE feature_db OWNER feature"
+psql <ADMIN> -c "CREATE USER course PASSWORD 'course'"   -c "CREATE DATABASE course_db OWNER course"
 PGPASSWORD=auth    psql -h localhost -U auth    auth_db    -f db/auth/schema.sql    -f db/auth/seed.sql
 PGPASSWORD=feature psql -h localhost -U feature feature_db -f db/feature/schema.sql -f db/feature/seed.sql
+PGPASSWORD=course  psql -h localhost -U course  course_db  -f db/course/schema.sql  -f db/course/seed.sql
 ```
 
 **3. Start the services** (one terminal each, leave running; wait for "gRPC Server started")
 ```bash
 java -jar auth-service/target/auth-service-0.1.0-SNAPSHOT.jar      # port 9001
 java -jar feature-service/target/feature-service-0.1.0-SNAPSHOT.jar # port 9004
+java -jar course-service/target/course-service-0.1.0-SNAPSHOT.jar   # port 9002
 ```
 
 **4. Test** (third terminal, from `repo/`). These shortcuts are for zsh/bash; paste them once per terminal:
@@ -110,6 +113,7 @@ G() { grpcurl -plaintext -import-path proto/src/main/proto "$@"; }
 login() { G -proto auth.proto -d "{\"username\":\"$1\",\"password\":\"${2:-password123}\"}" localhost:9001 stdiscm.auth.AuthService/Login; }
 STUDENT=$(login alice | jq -r .token); FACULTY=$(login reyes | jq -r .token)
 ANN=stdiscm.announcement.AnnouncementService
+COURSE=stdiscm.course.CourseService
 ```
 
 | Test | Command | Expected |
@@ -123,6 +127,19 @@ ANN=stdiscm.announcement.AnnouncementService
 | Empty title | same as faculty, with `'{"body":"x"}'` | InvalidArgument |
 | Logout | `G -proto auth.proto -H "authorization: Bearer $STUDENT" -d '{}' localhost:9001 stdiscm.auth.AuthService/Logout` | `{}`; one row in `revoked_tokens` |
 
+Course service (seed: `CS101` open, `FULL101` full, `CLOSED01` closed, `STDISCM` has alice + carol):
+
+| Test | Command | Expected |
+|---|---|---|
+| List courses | `G -proto course.proto -H "authorization: Bearer $STUDENT" -d '{}' localhost:9002 $COURSE/ListCourses` | Five seeded courses |
+| Enroll | `G -proto course.proto -H "authorization: Bearer $STUDENT" -d '{"course_code":"CS101"}' localhost:9002 $COURSE/Enroll` | Course with `enrolled` +1 |
+| Enroll again | same command | AlreadyExists, `ALREADY_ENROLLED` |
+| Full | same with `FULL101` | FailedPrecondition, `FULL` |
+| Closed | same with `CLOSED01` | FailedPrecondition, `CLOSED` |
+| My enrollments | `G -proto course.proto -H "authorization: Bearer $STUDENT" -d '{}' localhost:9002 $COURSE/ListMyEnrollments` | alice's courses |
+| Roster as student | `G -proto course.proto -H "authorization: Bearer $STUDENT" -d '{"course_code":"STDISCM"}' localhost:9002 $COURSE/ListRoster` | PermissionDenied |
+| Roster as faculty | same with `$FACULTY` | alice and carol |
+
 **Login service down:** press `Ctrl+C` in the auth terminal. Faculty reads and posts still work; `login`
 fails with Unavailable. Start it again and login recovers.
 
@@ -130,7 +147,8 @@ fails with Unavailable. Start it again and login recovers.
 then use the token: Unauthenticated, "invalid or expired token".
 
 **Settings** (environment variables; defaults in each `application.yml`): `GRPC_PORT`,
-`AUTH_DB_*` / `FEATURE_DB_*` (HOST, PORT, NAME, USER, PASSWORD), `JWT_PUBLIC_KEY_PATH`,
+`AUTH_DB_*` / `FEATURE_DB_*` / `COURSE_DB_*` (HOST, PORT, NAME, USER, PASSWORD),
+`DB_POOL_*` (Bonus 3 pool limits and logging), `JWT_PUBLIC_KEY_PATH`,
 `JWT_PRIVATE_KEY_PATH`, `JWT_TTL_MINUTES`.
 
 ---

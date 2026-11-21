@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: course-service
+  datasource:
+    url: jdbc:postgresql://${COURSE_DB_HOST:localhost}:${COURSE_DB_PORT:5432}/${COURSE_DB_NAME:course_db}
+    username: ${COURSE_DB_USER:course}
+    password: ${COURSE_DB_PASSWORD:course}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate   # schema comes from db/course/schema.sql
+
+# Bonus 3: one explicit pool for every service (shared-db module).
+db:
+  pool:
+    name: course-pool
+    maximum-pool-size: ${DB_POOL_MAX:10}
+    minimum-idle: ${DB_POOL_MIN_IDLE:2}
+    idle-timeout-ms: ${DB_POOL_IDLE_TIMEOUT_MS:60000}
+    connection-timeout-ms: ${DB_POOL_CONNECTION_TIMEOUT_MS:3000}
+    max-lifetime-ms: ${DB_POOL_MAX_LIFETIME_MS:1800000}
+    log-interval-ms: ${DB_POOL_LOG_INTERVAL_MS:10000}
+    # Keep true on the course node so the concurrency demo shows every checkout.
+    log-checkouts: ${DB_POOL_LOG_CHECKOUTS:true}
+
+  # Bonus 1: a read-only streaming replica takes over while the primary DB is down.
+  # Empty host = no replica, failover off, and the pool above is used as is.
+  failover:
+    replica-host: ${COURSE_DB_REPLICA_HOST:}
+    replica-port: ${COURSE_DB_REPLICA_PORT:5432}
+
+grpc:
+  server:
+    port: ${GRPC_PORT:9002}
+
+auth:
+  jwt:
+    public-key-path: ${JWT_PUBLIC_KEY_PATH:deploy/keys/public.pem}

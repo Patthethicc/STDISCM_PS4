@@ -12,6 +12,7 @@
 
   <artifactId>grade-service</artifactId>
   <name>grade-service</name>
+  <description>Grade upload and lookup</description>
 
   <dependencies>
     <dependency>
@@ -22,6 +23,7 @@
       <groupId>com.stdiscm</groupId>
       <artifactId>shared-auth</artifactId>
     </dependency>
+    <!-- Bonus 3: the same explicit pool used by the auth, course and feature nodes. -->
     <dependency>
       <groupId>com.stdiscm</groupId>
       <artifactId>shared-db</artifactId>
@@ -43,6 +45,11 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-inprocess</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>

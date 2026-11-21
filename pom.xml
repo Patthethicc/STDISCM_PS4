@@ -19,17 +19,17 @@
 
   <!--
     Only modules that already have a pom are listed. Each teammate adds their own
-    module here when they fill in its pom.xml (shared-db, course-service,
-    grade-service, gateway).
+    module here when they fill in its pom.xml.
   -->
   <modules>
     <module>proto</module>
     <module>shared-auth</module>
+    <module>shared-db</module>
     <module>auth-service</module>
     <module>feature-service</module>
-    <module>gateway</module>
-    <module>shared-db</module>
+    <module>course-service</module>
     <module>grade-service</module>
+    <module>gateway</module>
   </modules>
 
   <properties>

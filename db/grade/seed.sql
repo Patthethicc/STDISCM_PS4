@@ -2,14 +2,14 @@
 --   alice 11111111-1111-1111-1111-111111111111   reyes  22222222-2222-2222-2222-222222222221
 --   bob   11111111-1111-1111-1111-111111111112   santos 22222222-2222-2222-2222-222222222222
 --   carol 11111111-1111-1111-1111-111111111113
--- Course codes must match db/course/seed.sql (agree them with the course service owner).
+-- Course codes and titles match db/course/seed.sql, so the upload page can fetch each class roster.
 -- Terms use the upload page's format, e.g. 'T1 2026-2027'.
 
 INSERT INTO faculty_courses (faculty_id, course_code, course_title) VALUES
-  ('22222222-2222-2222-2222-222222222221', 'STDISCM', 'Distributed Computing'),
-  ('22222222-2222-2222-2222-222222222221', 'CSOPESY', 'Operating Systems'),
-  ('22222222-2222-2222-2222-222222222222', 'CSARCH2', 'Computer Architecture 2'),
-  ('22222222-2222-2222-2222-222222222222', 'CCPROG3', 'Object-Oriented Programming')
+  ('22222222-2222-2222-2222-222222222221', 'STDISCM',  'Introduction to Distributed Systems'),
+  ('22222222-2222-2222-2222-222222222221', 'CS101',    'Introduction to Computing'),
+  ('22222222-2222-2222-2222-222222222222', 'FULL101',  'Full Course Demo'),
+  ('22222222-2222-2222-2222-222222222222', 'CLOSED01', 'Closed Course Demo')
 ON CONFLICT DO NOTHING;
 
 -- Previous grades, so "view previous grades" has something to show on day one.

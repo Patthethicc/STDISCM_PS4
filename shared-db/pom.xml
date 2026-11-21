@@ -12,21 +12,18 @@
 
   <artifactId>shared-db</artifactId>
   <name>shared-db</name>
-  <description>Connection pools and primary-to-replica failover (Bonus 1) shared by every service</description>
+  <description>Shared HikariCP PostgreSQL pool with explicit limits and usage logging (Bonus 3), plus primary-to-replica failover (Bonus 1)</description>
 
   <dependencies>
     <dependency>
-      <groupId>com.zaxxer</groupId>
-      <artifactId>HikariCP</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.springframework</groupId>
-      <artifactId>spring-tx</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-jdbc</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-autoconfigure</artifactId>
     </dependency>
+    <!-- Bonus 1: DatabaseExceptionAdvice maps database outages to gRPC statuses -->
     <dependency>
       <groupId>net.devh</groupId>
       <artifactId>grpc-server-spring-boot-starter</artifactId>
@@ -34,10 +31,6 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-api</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
     </dependency>
 
     <dependency>

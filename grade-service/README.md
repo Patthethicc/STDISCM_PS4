@@ -33,7 +33,7 @@ service/GradeService       rules + transactions (upload = one transaction)
 service/GradeRules         input checks and term ordering, no Spring/gRPC (unit-tested)
 repository/GradeRepository, FacultyCourseRepository   JPA reads
 repository/GradeBatchWriter  JDBC batches of INSERT ... ON CONFLICT DO UPDATE
-config/DataSourceConfig    shared-db ReplicaFailoverDataSource (Bonus 1)
+(no DataSource code)       shared-db builds the pool (Bonus 3); with db.failover.replica-host set it adds the replica (Bonus 1)
 ```
 
 ## Run locally
@@ -63,11 +63,11 @@ g() { G -proto grade.proto -H "authorization: Bearer $1" -d "$2" localhost:9003 
 |---|---|---|
 | Student's grades | `g $STUDENT '{}' GetMyGrades` | alice: CSARCH2 4.0 (T3 2025-2026), CCPROG3 3.5 (T2 2025-2026) |
 | Faculty calls GetMyGrades | `g $FACULTY '{}' GetMyGrades` | PermissionDenied |
-| Faculty's courses | `g $FACULTY '{}' ListMyTeachingCourses` | reyes: CSOPESY, STDISCM |
+| Faculty's courses | `g $FACULTY '{}' ListMyTeachingCourses` | reyes: CS101, STDISCM |
 | Upload | `g $FACULTY '{"course_code":"STDISCM","term":"T1 2026-2027","grades":[{"student_id":"11111111-1111-1111-1111-111111111111","grade":3.5}]}' UploadGrades` | `saved: 1` |
 | Same again, grade 3.0 | same request | `saved: 1`; alice now sees 3.0 (updated, not duplicated) |
 | Student uploads | same request with `$STUDENT` | PermissionDenied |
-| Not their course | reyes uploads `CSARCH2` or `NOT-MY-COURSE` | PermissionDenied "you do not teach ..." |
+| Not their course | reyes uploads `FULL101` or `NOT-MY-COURSE` | PermissionDenied "you do not teach ..." |
 | Bad grade | `"grade":3.7` | InvalidArgument naming the row; nothing saved |
 | Primary DB down | `local-demo.sh stop-primary`, then GetMyGrades / UploadGrades | grades still shown / Unavailable |
 
@@ -75,12 +75,12 @@ The browser flow and node failures are covered by `tests/e2e/FailureTests.java` 
 
 ## For teammates
 
-- **Course service (Pat):** seed the same codes as `db/grade/seed.sql`: STDISCM, CSOPESY (reyes),
-  CSARCH2, CCPROG3 (santos), so the roster and the grade upload page agree. For Bonus 1, add the
-  `shared-db` dependency, a `config/DataSourceConfig` like this module's, and a `db:` block with
-  `COURSE_DB_*` variables (copy this module's `application.yml`); compose already passes
-  `COURSE_DB_REPLICA_HOST/PORT`. Bonus 3: pools are built in `shared-db/FailoverDataSourceFactory.pool()`;
-  take that over in `PoolConfig` if you like, but keep the short timeouts and `initializationFailTimeout = -1`.
-- **Auth + announcements (Meg):** both now use the same failover DataSource (`spring.datasource` became a
-  `db:` block; same `AUTH_DB_*` / `FEATURE_DB_*` variables, plus `*_DB_REPLICA_HOST/PORT`). While a
-  primary DB is down, login and reading announcements work; logout and posting return UNAVAILABLE.
+- **Course service (Pat):** `db/grade/seed.sql` uses your course codes and titles (STDISCM, CS101 for reyes;
+  FULL101, CLOSED01 for santos), so each class roster and its grade upload page agree. Bonus 1 needed no code in
+  your service: `application.yml` has a `db.failover` block, and compose passes `COURSE_DB_REPLICA_HOST/PORT`.
+  Your `db.pool` settings (Bonus 3) apply to both the primary and the replica pool. Only while a replica is configured,
+  the connection timeout becomes 500 ms (`db.failover.connection-timeout-ms`) so a failover fits in the gateway's
+  2-second deadline; without a replica your 3 s pool is used unchanged.
+- **Auth + announcements (Meg):** same `db.failover` block in each `application.yml` (`AUTH_DB_*` / `FEATURE_DB_*`
+  variables, plus `*_DB_REPLICA_HOST/PORT`). While a primary DB is down, login and reading announcements work;
+  logout and posting return UNAVAILABLE.

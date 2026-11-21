@@ -29,7 +29,7 @@ import java.util.function.LongSupplier;
  *       another dead pooled connection.</li>
  * </ul>
  *
- * Built by {@link FailoverDataSourceFactory}; each service exposes it as its only DataSource bean.
+ * Registered by {@link SharedDbAutoConfiguration} as the DataSource bean when {@code db.failover.replica-host} is set.
  */
 public class ReplicaFailoverDataSource implements DataSource, AutoCloseable {
 

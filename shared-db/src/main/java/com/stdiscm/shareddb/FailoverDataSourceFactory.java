@@ -4,53 +4,48 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
 /**
- * Builds a service's DataSource: an explicit Hikari pool for the primary, another for the
- * replica (when {@code db.replica.host} is set), wrapped in {@link ReplicaFailoverDataSource}.
- *
- * <pre>
- * &#64;Bean(destroyMethod = "close")
- * public ReplicaFailoverDataSource dataSource(DbSettings db) {
- *     return FailoverDataSourceFactory.create("grade-service", db);
- * }
- * </pre>
- * Note for Bonus 3: pool sizing lives in {@link #pool}; PoolConfig can take it over, but keep
- * the short timeouts and {@code initializationFailTimeout = -1}.
+ * Bonus 1 on top of Bonus 3: builds one pool for the primary and one for the replica with the same
+ * settings {@link PoolConfig} uses for a single pool (size, idle timeout, lifetime, usage logging),
+ * then wraps both in {@link ReplicaFailoverDataSource}. Only the timeouts differ, see
+ * {@link FailoverProperties}.
  */
-public final class FailoverDataSourceFactory {
+final class FailoverDataSourceFactory {
 
     private FailoverDataSourceFactory() { }
 
-    public static ReplicaFailoverDataSource create(String serviceName, DbSettings db) {
-        HikariDataSource primary = pool(serviceName + "-primary", serviceName, db, db.getPrimary(), false);
-        HikariDataSource replica = db.getReplica().isConfigured()
-                ? pool(serviceName + "-replica", serviceName, db, db.getReplica(), true)
+    static ReplicaFailoverDataSource create(String url, String username, String password,
+                                            String driverClassName, PoolProperties pool,
+                                            FailoverProperties failover) {
+        HikariDataSource primary = pool(withParams(url, failover.getJdbcParams()), username, password,
+                driverClassName, pool, failover, pool.getName() + "-primary", false);
+        HikariDataSource replica = failover.isEnabled()
+                ? pool(withParams(swapHost(url, failover.getReplicaHost(), failover.getReplicaPort()),
+                        failover.getJdbcParams()),
+                        username, password, driverClassName, pool, failover, pool.getName() + "-replica", true)
                 : null;
-        return new ReplicaFailoverDataSource(serviceName, primary, replica, db.getFailover().getRecheckMs());
+        return new ReplicaFailoverDataSource(pool.getName(), primary, replica, failover.getRecheckMs());
     }
 
-    static String jdbcUrl(DbSettings db, DbSettings.Endpoint e, String applicationName) {
-        String params = db.getJdbcParams() == null || db.getJdbcParams().isBlank() ? "" : db.getJdbcParams() + "&";
-        return "jdbc:postgresql://" + e.getHost() + ":" + e.getPort() + "/" + db.getName()
-                + "?" + params + "ApplicationName=" + applicationName;
-    }
-
-    static HikariDataSource pool(String poolName, String serviceName, DbSettings db,
-                                 DbSettings.Endpoint endpoint, boolean readOnly) {
-        DbSettings.Pool p = db.getPool();
-        HikariConfig c = new HikariConfig();
+    private static HikariDataSource pool(String url, String username, String password, String driverClassName,
+                                         PoolProperties pool, FailoverProperties failover,
+                                         String poolName, boolean readOnly) {
+        HikariConfig c = new PoolConfig().buildConfig(url, username, password, driverClassName, pool);
         c.setPoolName(poolName);
-        c.setJdbcUrl(jdbcUrl(db, endpoint, serviceName));
-        c.setUsername(db.getUser());
-        c.setPassword(db.getPassword());
-        c.setMaximumPoolSize(p.getMaximumPoolSize());
-        c.setMinimumIdle(p.getMinimumIdle());
-        c.setIdleTimeout(p.getIdleTimeoutMs());
-        c.setConnectionTimeout(p.getConnectionTimeoutMs());
-        c.setValidationTimeout(p.getValidationTimeoutMs());
-        c.setMaxLifetime(p.getMaxLifetimeMs());
+        c.setConnectionTimeout(failover.getConnectionTimeoutMs());
+        c.setValidationTimeout(failover.getValidationTimeoutMs());
         // Start even when this database is down right now (the default, 1, fails startup instead).
         c.setInitializationFailTimeout(-1);
         c.setReadOnly(readOnly);
         return new HikariDataSource(c);
+    }
+
+    /** jdbc:postgresql://db:5432/x -> jdbc:postgresql://replica:5433/x (single-host URLs only). */
+    static String swapHost(String url, String host, int port) {
+        return url.replaceFirst("//[^/?]+", "//" + host + ":" + port);
+    }
+
+    static String withParams(String url, String params) {
+        if (params == null || params.isBlank()) return url;
+        return url + (url.contains("?") ? "&" : "?") + params;
     }
 }
